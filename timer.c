@@ -20,19 +20,21 @@
 #define _XTAL_FREQ 4000000
 #define RELAY_PIN RA0
 #define INPUT_PIN RA5
+#define CHNG_PIN RA2
 
-#define MODE1_ONE 33
-#define MODE1_TWO 198
+#define MODE1_ONE 66
+#define MODE1_TWO 330
 #define MODE1_THREE 660
 
 #define MODE2_ONE 66
-#define MODE2_TWO 660
-#define MODE2_THREE 1980
+#define MODE2_TWO 330
+#define MODE2_THREE 660
 
 
 
 int mode1=0;
 int mode2=0;
+int count=0;
 
 void writeEEPROM(unsigned char address, unsigned char datas)
 {
@@ -61,8 +63,8 @@ unsigned char readEEPROM(unsigned char address)
   return EEDATA; //Returning data
 }
 
-void __interrupt() LEARN(void){
-    INTF = 0;
+void mode_change(){
+    
     if (INPUT_PIN!=0){
         mode1 += 1;
         mode1 %= 3;
@@ -77,6 +79,7 @@ void __interrupt() LEARN(void){
 void custom_delay_on(unsigned short mode_given,  unsigned short mode_given2){
     extern int mode1;
     extern int mode2;
+    extern int count;
     int seconds=0;
     
     if(mode_given==0){
@@ -87,10 +90,19 @@ void custom_delay_on(unsigned short mode_given,  unsigned short mode_given2){
         seconds = MODE1_THREE;
     }
     seconds*=10;
+    count = 0;
     for(int i=0;i<seconds;i++){
         if(mode1!=mode_given || mode2!=mode_given2){
             break;
         }
+        if (CHNG_PIN != 0) {
+            count++;
+        }
+        if (count>2) {
+            count=0;
+            mode_change();
+        }
+        
         __delay_ms(100);
     }
 }
@@ -108,9 +120,17 @@ void custom_delay_off( unsigned short mode_given2, unsigned short mode_given){
         seconds = MODE2_THREE;
     }
     seconds*=10;
+    count = 0;
     for(int i=0;i<seconds;i++){
         if(mode2!=mode_given || mode1!=mode_given2){
             break;
+        }
+        if (CHNG_PIN != 0) {
+            count++;
+        }
+        if (count>2) {
+            count=0;
+            mode_change();
         }
         __delay_ms(100);
     }
@@ -123,9 +143,9 @@ int main(int argc, char** argv) {
     TRISC=0X00;
     nRAPU=0;
     INTEDG=0;
-    GIE=1;
+    GIE=0;
     INTF=0;
-    INTE=1;
+    INTE=0;
     
     extern int mode1;
     extern int mode2;
@@ -228,3 +248,4 @@ int main(int argc, char** argv) {
     }
 //    return (EXIT_SUCCESS);
 }
+
